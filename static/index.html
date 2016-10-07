@@ -87,7 +87,7 @@
             var label = $.format.date(r.created_at, label_fmt);
             chart.data.labels.push(label);
             chart.data.datasets[0].data.push(r.PM25);
-            chart.data.datasets[1].data.push(r.PM10);
+            chart.data.datasets[1].data.push(r.PM100);
           });
           chart.update();
         });
