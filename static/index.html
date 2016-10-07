@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>airstation</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/font-awesome.min.css">
+
+    <script type="text/javascript" src="/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/js/jquery-dateFormat.min.js"></script>
+    <script type="text/javascript" src="/js/tether.min.js"</script>
+    <script type="text/javascript" src="/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/js/Chart.min.js"></script>
+    <style>
+      div.main {
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <div class="container main">
+      <div class="row" style="text-align: center">
+        <h1>Air Pollution Status</h1>
+      </div>
+      <div class="row">
+        <div class="col-md-10 col-md-offset-1">
+          <canvas id="main-chart" height="100"></canvas>
+        </div>
+      </div>
+      <hr />
+      <div class="row">
+        <div class="col-md-5 col-md-offset-1">
+          <canvas id="day-chart" height="150"></canvas>
+        </div>
+        <div class="col-md-5">
+          <canvas id="week-chart" height="150"></canvas>
+        </div>
+      </div>
+    </div>
+    <script>
+      function create_chart(canvas) {
+        return new Chart($(canvas), {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: 'PM2.5',
+                fill: false,
+                data: [],
+                borderWidth: 1,
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255,99,132,1)',
+              },
+              {
+                label: 'PM10',
+                fill: false,
+                data: [],
+                borderWidth: 1,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+              }
+            ]
+          }
+        });
+      }
+
+      function load_chart(chart, start_date, interval, label_fmt) {
+        $.ajax({
+          url: "/api/v1/air?start_date=" + start_date + "&interval=" + interval,
+          dataType: "json",
+        }).done(function (json) {
+          var data = [new Array(), new Array()];
+          var labels = new Array();
+          chart.data.labels = new Array();
+          chart.data.datasets[0].data = new Array();
+          chart.data.datasets[1].data = new Array();
+          $.each(json, function(i, r) {
+            var t = new Date(r.created_at);
+            var label = $.format.date(r.created_at, label_fmt);
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(r.PM25);
+            chart.data.datasets[1].data.push(r.PM10);
+          });
+          chart.update();
+        });
+      }
+
+      function refresh() {
+        var now = (new Date()).getTime();
+        var fmt = "yyyy-MM-dd_hh:mm:00";
+
+        load_chart(main_chart,
+                   $.format.date(new Date(now - 3600 * 6 * 1000), fmt),
+                   900,
+                   "hh:mm");
+        load_chart(day_chart,
+                   $.format.date(new Date(now - (7 * 24 * 3600 * 15 * 1000)), fmt),
+                   43200,
+                   "dd MMM hh:mm");
+        load_chart(week_chart,
+                   $.format.date(new Date(now - (7 * 24 * 3600 * 30 * 1000)), fmt),
+                   86400,
+                   "dd MMM hh:mm");
+        window.setTimeout(refresh, 900 * 1000);
+      }
+
+      var main_chart = create_chart("#main-chart");
+      var day_chart = create_chart("#day-chart");
+      var week_chart = create_chart("#week-chart");
+
+
+      $(document).ready(function () {
+        refresh();
+      });
+    </script>
+
+
+  </body>
+
+</html>
