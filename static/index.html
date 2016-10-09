@@ -45,9 +45,9 @@
       </div>
     </div>
     <script>
-      function create_chart(canvas) {
+      function create_chart(canvas, style) {
         return new Chart($(canvas), {
-          type: 'line',
+          type: style,
           data: {
             labels: [],
             datasets: [
@@ -95,26 +95,26 @@
 
       function refresh() {
         var now = (new Date()).getTime();
-        var fmt = "yyyy-MM-dd_hh:mm:00";
+        var fmt = "yyyy-MM-dd_HH:mm:00";
 
         load_chart(main_chart,
-                   $.format.date(new Date(now - 3600 * 6 * 1000), fmt),
+                   $.format.date(new Date(now - 12 * 3600 * 1000), fmt),
                    900,
-                   "hh:mm");
+                   "HH:mm");
         load_chart(day_chart,
-                   $.format.date(new Date(now - (7 * 24 * 3600 * 15 * 1000)), fmt),
-                   43200,
-                   "dd MMM hh:mm");
+                   $.format.date(new Date(now - (48 * 3600 * 1000)), fmt),
+                   7200,
+                   "dd MMM HH:mm");
         load_chart(week_chart,
-                   $.format.date(new Date(now - (7 * 24 * 3600 * 30 * 1000)), fmt),
+                   $.format.date(new Date(now - (30 * 24 * 3600 * 1000)), fmt),
                    86400,
-                   "dd MMM hh:mm");
+                   "dd MMM HH:mm");
         window.setTimeout(refresh, 900 * 1000);
       }
 
-      var main_chart = create_chart("#main-chart");
-      var day_chart = create_chart("#day-chart");
-      var week_chart = create_chart("#week-chart");
+      var main_chart = create_chart("#main-chart", "line");
+      var day_chart = create_chart("#day-chart", "line");
+      var week_chart = create_chart("#week-chart", "line");
 
 
       $(document).ready(function () {
