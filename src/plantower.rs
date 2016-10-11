@@ -1,6 +1,5 @@
 // Jianing Yang <jianingy.yang@gmail.com> @  3 Oct, 2016
 use chrono::offset::local::Local;
-use chrono::naive::datetime::NaiveDateTime;
 use serial;
 use serial::posix::TTYPort;
 use serial::prelude::*;

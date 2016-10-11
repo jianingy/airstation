@@ -16,6 +16,11 @@ error_chain!{
             description("database error")
             display("database error: {}", reason)
         }
+
+        PruCodeError(reason: String) {
+            description("PRU code error")
+            display("PRU code error: {}", reason)
+        }
     }
 
 }

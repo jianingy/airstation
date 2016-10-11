@@ -6,6 +6,7 @@
 extern crate chrono;
 extern crate clap;
 extern crate env_logger;
+extern crate prusst;
 extern crate r2d2;
 extern crate r2d2_mysql;
 extern crate serde_json;
@@ -16,6 +17,7 @@ extern crate sysfs_gpio;
 mod db_api;
 mod models;
 mod plantower;
+mod pruware;
 
 use chrono::duration::Duration;
 use chrono::naive::datetime::NaiveDateTime;
@@ -96,17 +98,13 @@ fn plantower_run_once(port: &str) -> Result<models::AirQuality>{
     Ok(data)
 }
 
-fn main() {
-    init_logger();
-    let db = Arc::new(db_api::init_db(OPTIONS.value_of("mysql").unwrap()).unwrap());
-    // run forever no need to join
-    let db1 = db.clone();
+fn start_plantower(db: Arc<db_api::Pool>) {
     thread::spawn(move || {
-        let mut conn = db1.get().unwrap();
+        let mut conn = db.get().unwrap();
         db_api::init_table(&mut conn).unwrap();
         debug!("plantower reader thread started.");
         loop {
-            let mut conn = db1.get().unwrap();
+            let mut conn = db.get().unwrap();
             match plantower_run_once(OPTIONS.value_of("uart").unwrap()) {
                 Err(e) => {
                     info!("{:?}", e);
@@ -120,38 +118,78 @@ fn main() {
             thread::sleep(Duration::seconds(60).to_std().unwrap());
         }
     });
+}
 
-    // run dashboard server
-    let db2 = db.clone();
+fn start_htreader(db: Arc<db_api::Pool>) {
+    thread::spawn(move || {
+        loop {
+            let pruss = pruware::create_pruss();
+            if let Some((humidity, celsius)) = pruware::read_from_dht11(pruss) {
+                info!("DHT11 Data: humidity = {} / celsius = {}", humidity, celsius);
+                let mut conn = db.get().unwrap();
+                db_api::add_environment(&mut conn, humidity, celsius).unwrap();
+                thread::sleep(Duration::seconds(60).to_std().unwrap());
+            } else {
+                warn!("error on read DHT11, will try again soon");
+                thread::sleep(Duration::seconds(1).to_std().unwrap());
+            }
+        }
+    });
+}
+
+fn start_dashboard(db: Arc<db_api::Pool>) {
     let mut server = Nickel::new();
+
+    fn parse_range_argument(q: &nickel::Params) -> (NaiveDateTime, NaiveDateTime, u32)
+    {
+        let fmt = "%F_%T";
+        let start = match q.get("start_date") {
+            Some(x) => NaiveDateTime::parse_from_str(x, fmt).unwrap(),
+            None => Local::now().naive_local() - Duration::hours(6)
+        };
+        let end = match q.get("end_date") {
+            Some(x) => NaiveDateTime::parse_from_str(x, fmt).unwrap(),
+            None => Local::now().naive_local()
+        };
+        let interval = match q.get("interval") {
+            Some(x) => x.parse::<u32>().unwrap(),
+            None => 900u32
+        };
+
+        (start, end, interval)
+    }
+    let (db1, db2) = (db.clone(), db.clone());
     server.utilize(StaticFilesHandler::new("static/"));
     server.utilize(router! {
         get "/api/v1/version" => |_req, _res| {
             "1.0.0"
         }
         get "/api/v1/air" => |req, _res| {
-            let mut conn = db2.get().unwrap();
-            let fmt = "%F_%T";
+            let mut conn = db1.get().unwrap();
             let q = req.query();
-            let start = match q.get("start_date") {
-                Some(x) => NaiveDateTime::parse_from_str(x, fmt).unwrap(),
-                None => Local::now().naive_local() - Duration::hours(6)
-            };
-            let end = match q.get("end_date") {
-                Some(x) => NaiveDateTime::parse_from_str(x, fmt).unwrap(),
-                None => Local::now().naive_local()
-            };
-            let interval = match q.get("interval") {
-                Some(x) => x.parse::<u32>().unwrap(),
-                None => 900u32
-            };
-
+            let (start, end, interval) = parse_range_argument(q);
             let records = db_api::get_air_quality(&mut conn, start, end, interval).unwrap();
+            let v = records.iter().map(|x| x.to_json()).collect::<Vec<Value>>();
+            serde_json::to_string(&v).unwrap()
+        }
+        get "/api/v1/environment" => |req, _res| {
+            let mut conn = db2.get().unwrap();
+            let q = req.query();
+            let (start, end, interval) = parse_range_argument(q);
+            let records = db_api::get_environment(&mut conn, start, end, interval).unwrap();
             let v = records.iter().map(|x| x.to_json()).collect::<Vec<Value>>();
             serde_json::to_string(&v).unwrap()
         }
     });
     server.listen(OPTIONS.value_of("bind").unwrap());
+}
 
+fn main() {
+    init_logger();
+    let db = Arc::new(db_api::init_db(OPTIONS.value_of("mysql").unwrap()).unwrap());
+    start_plantower(db.clone());
+    start_htreader(db.clone());
+    // run dashboard server
+    start_dashboard(db.clone());
 
 }

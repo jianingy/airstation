@@ -34,3 +34,20 @@ impl ToJson for AirQuality {
         Value::Object(map)
     }
 }
+
+#[derive(Debug)]
+pub struct Environment {
+    pub humidity: i32,
+    pub temperature: i32,
+    pub created_at: NaiveDateTime,
+}
+
+impl ToJson for Environment {
+    fn to_json(&self) -> Value {
+        let mut map = BTreeMap::new();
+        map.insert("humidity".to_string(), self.humidity.to_json());
+        map.insert("temperature".to_string(), self.temperature.to_json());
+        map.insert("created_at".to_string(), self.created_at.to_json());
+        Value::Object(map)
+    }
+}

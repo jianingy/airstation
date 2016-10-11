@@ -1,0 +1,107 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
+
+    // identification
+    part-number = "AIRSTATION";
+    manufacturer = "JianingYang";
+    board-name = "AirStation";
+    version = "00A0";
+
+    // resources
+    exclusive-use =
+        "P9.14",
+        "P9.23",
+        "pru0";
+
+
+    // pinmux
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+        __overlay__ {
+            P9_14_default_pin: pinmux_P9_14_default_pin {
+                pinctrl-single,pins = <0x048 0x27>;
+            };
+	    P9_14_gpio_pin: pinmux_P9_14_gpio_pin {
+		pinctrl-single,pins = <0x048 0x2f>;
+	    };
+            P9_14_gpio_pu_pin: pinmux_P9_14_gpio_pu_pin {
+                pinctrl-single,pins = <0x048  0x37>; 
+            };
+
+            P9_23_default_pin: pinmux_P9_23_default_pin {
+                pinctrl-single,pins = <0x044 0x27>;
+            };
+	    P9_23_gpio_pin: pinmux_P9_23_gpio_pin {
+		pinctrl-single,pins = <0x044 0x2f>;
+	    };
+            P9_23_gpio_pu_pin: pinmux_P9_23_gpio_pu_pin {
+                pinctrl-single,pins = <0x044 0x37>; 
+            };
+        };
+    };
+
+
+    // PRU
+    fragment@1 {
+        target = <&ocp>;
+        __overlay__ {
+		P9_14_pinmux {
+			compatible = "bone-pinmux-helper";
+			status = "okay";
+			pinctrl-names = "default", "gpio";
+			pinctrl-0 = <&P9_14_default_pin>;
+			pinctrl-1 = <&P9_14_gpio_pin>;
+			pinctrl-2 = <&P9_14_gpio_pu_pin>;
+		};
+		P9_23_pinmux {
+			compatible = "bone-pinmux-helper";
+			status = "okay";
+			pinctrl-names = "default", "gpio";
+			pinctrl-0 = <&P9_23_default_pin>;
+			pinctrl-1 = <&P9_23_gpio_pin>;
+			pinctrl-2 = <&P9_23_gpio_pu_pin>;
+		};
+        };
+    };
+
+    fragment@2 {
+        target = <&ocp>;
+        __overlay__ {
+
+		// !!!WARNING!!!
+		// gpio-of-helper &gpio pointers are off-by-one vs. the hardware:
+		//   hardware GPIO bank 0 = &gpio1
+		cape {
+			compatible = "gpio-of-helper";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <>;
+
+			P9_14 {
+				gpio-name = "P9_14";
+				gpio = <&gpio1 18 0>;
+				output;
+				dir-changeable;
+			};
+
+			P9_23 {
+				gpio-name = "P9_23";
+				gpio = <&gpio1 17 0>;
+				input;
+				dir-changeable;
+			};
+		};
+        };
+    };
+
+    fragment@3 {
+        target = <&pruss>;
+        __overlay__ {
+            status = "okay";
+        };
+    };
+
+};
