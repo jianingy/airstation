@@ -54,16 +54,16 @@ impl PlanTower {
 
     fn read_uart(&mut self) -> Result<Vec<u8>> {
         // read and verify if header starts with 'BM'
-        let (mut hd0, mut hd1) = ([0u8], [0u8]);
+        let mut hd = [0; 2];
         loop {
-            try!(self.uart.read_exact(&mut hd0)
+            try!(self.uart.read_exact(&mut hd[0..1])
                  .chain_err(|| uart_error!("cannot read")));
-            if hd0[0] != 0x42 {
+            if hd[0] != 0x42 {
                 continue
             }
-            try!(self.uart.read_exact(&mut hd1)
+            try!(self.uart.read_exact(&mut hd[1..])
                  .chain_err(|| uart_error!("cannot read")));
-            if hd1[0] != 0x4d {
+            if hd[1] != 0x4d {
                 continue
             }
             break;
@@ -79,7 +79,7 @@ impl PlanTower {
         try!(self.uart.read_exact(&mut bs)
              .chain_err(|| uart_error!("cannot read")));
         let &(data, sign) = &bs.split_at(len - 2);
-        let checksum = (hd0[0] as u16) + (hd1[0] as u16)
+        let checksum = hd.iter().map(|x| *x as u16).sum::<u16>()
             + sz.iter().map(|x| *x as u16).sum::<u16>()
             + data.iter().map(|x| *x as u16).sum::<u16>();
         let sign = ((sign[0] as u16) << 8) + sign[1] as u16;
