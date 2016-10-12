@@ -124,7 +124,7 @@ fn start_htreader(db: Arc<db_api::Pool>) {
     thread::spawn(move || {
         loop {
             let pruss = pruware::create_pruss();
-            if let Some((humidity, celsius)) = pruware::read_from_dht11(pruss) {
+            if let Some((humidity, celsius)) = pruware::read_from_dht22(pruss) {
                 info!("DHT11 Data: humidity = {} / celsius = {}", humidity, celsius);
                 let mut conn = db.get().unwrap();
                 db_api::add_environment(&mut conn, humidity, celsius).unwrap();
