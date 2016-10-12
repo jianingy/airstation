@@ -57,6 +57,14 @@ lazy_static! {
                  .required(true)
                  .default_value("0.0.0.0:8080")
                  .takes_value(true))
+            .arg(Arg::with_name("dht11")
+                 .long("dht11")
+                 .help("use DHT11 humidity/temperature sensor")
+                 .conflicts_with("dht22"))
+            .arg(Arg::with_name("dht22")
+                 .long("dht22")
+                 .help("use DHT22 humidity/temperature sensor")
+                 .conflicts_with("dht11"))
             .arg(Arg::with_name("verbose")
                  .short("v")
                  .multiple(true))
@@ -123,14 +131,26 @@ fn start_plantower(db: Arc<db_api::Pool>) {
 fn start_htreader(db: Arc<db_api::Pool>) {
     thread::spawn(move || {
         loop {
-            let pruss = pruware::create_pruss();
-            if let Some((humidity, celsius)) = pruware::read_from_dht22(pruss) {
-                info!("DHT11 Data: humidity = {} / celsius = {}", humidity, celsius);
+            let pruss = match pruware::create_pruss() {
+                Ok(p) => p,
+                Err(e) => {
+                    warn!("{}. will try again soon.", e);
+                    thread::sleep(Duration::seconds(1).to_std().unwrap());
+                    continue
+                }
+            };
+            let data = if OPTIONS.is_present("dht22") {
+                pruware::read_from_dht22(pruss)
+            } else {
+                pruware::read_from_dht11(pruss)
+            };
+            if let Some((humidity, celsius)) = data {
+                info!("DHT: humidity = {} / celsius = {}", humidity, celsius);
                 let mut conn = db.get().unwrap();
                 db_api::add_environment(&mut conn, humidity, celsius).unwrap();
                 thread::sleep(Duration::seconds(60).to_std().unwrap());
             } else {
-                warn!("error on read DHT11, will try again soon");
+                warn!("error on read DHT, will try again soon");
                 thread::sleep(Duration::seconds(1).to_std().unwrap());
             }
         }
@@ -181,7 +201,9 @@ fn start_dashboard(db: Arc<db_api::Pool>) {
             serde_json::to_string(&v).unwrap()
         }
     });
-    server.listen(OPTIONS.value_of("bind").unwrap());
+    let bind_address = OPTIONS.value_of("bind").unwrap();
+    server.listen(bind_address)
+        .expect(format!("cannot listen on {}", bind_address).as_str());
 }
 
 fn main() {

@@ -17,9 +17,9 @@ error_chain!{
             display("database error: {}", reason)
         }
 
-        PruCodeError(reason: String) {
-            description("PRU code error")
-            display("PRU code error: {}", reason)
+        PruError(reason: String) {
+            description("PRU error")
+            display("PRU error: {}", reason)
         }
     }
 
@@ -43,5 +43,12 @@ macro_rules! data_error {
 macro_rules! db_error {
     ( $( $e:expr ),* ) => {
         ErrorKind::DatabaseError(format!($( $e ),*))
+    }
+}
+
+#[macro_export]
+macro_rules! pru_error {
+    ( $( $e:expr ),* ) => {
+        ErrorKind::PruError(format!($( $e ),*))
     }
 }
